@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		7C9AF5712E1A6F05006A53E4 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7C9AF5702E1A6F05006A53E4 /* FirebaseCore */; };
+		7C9AF58B2E1BA564006A53E4 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 7C9AF58A2E1BA564006A53E4 /* FirebaseFirestore */; };
+		7C9AF58D2E1BA597006A53E4 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 7C9AF58C2E1BA597006A53E4 /* FirebaseStorage */; };
 		7CAC45872E1422EA00282EEC /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 7CAC45862E1422EA00282EEC /* GoogleSignIn */; };
 		7CAC45892E1422EA00282EEC /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 7CAC45882E1422EA00282EEC /* GoogleSignInSwift */; };
 		7CAC46DC2E14233A00282EEC /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 7CAC46DB2E14233A00282EEC /* FirebaseAuth */; };
@@ -46,7 +48,9 @@
 				7CAC45872E1422EA00282EEC /* GoogleSignIn in Frameworks */,
 				7CAC46DC2E14233A00282EEC /* FirebaseAuth in Frameworks */,
 				7C9AF5712E1A6F05006A53E4 /* FirebaseCore in Frameworks */,
+				7C9AF58B2E1BA564006A53E4 /* FirebaseFirestore in Frameworks */,
 				7CAC45892E1422EA00282EEC /* GoogleSignInSwift in Frameworks */,
+				7C9AF58D2E1BA597006A53E4 /* FirebaseStorage in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -93,6 +97,8 @@
 				7CAC45882E1422EA00282EEC /* GoogleSignInSwift */,
 				7CAC46DB2E14233A00282EEC /* FirebaseAuth */,
 				7C9AF5702E1A6F05006A53E4 /* FirebaseCore */,
+				7C9AF58A2E1BA564006A53E4 /* FirebaseFirestore */,
+				7C9AF58C2E1BA597006A53E4 /* FirebaseStorage */,
 			);
 			productName = Refuells;
 			productReference = 7CAC45772E14227D00282EEC /* Refuells.app */;
@@ -286,10 +292,11 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Refuells/Refuells.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20250707.1;
+				CURRENT_PROJECT_VERSION = 20250707.2;
 				DEVELOPMENT_TEAM = XB29ZAF479;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -299,7 +306,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.delteqis.Refuells;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -319,10 +326,11 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Refuells/Refuells.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20250707.1;
+				CURRENT_PROJECT_VERSION = 20250707.2;
 				DEVELOPMENT_TEAM = XB29ZAF479;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -332,7 +340,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.delteqis.Refuells;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -392,6 +400,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 7CAC46DA2E14233A00282EEC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseCore;
+		};
+		7C9AF58A2E1BA564006A53E4 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7CAC46DA2E14233A00282EEC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		7C9AF58C2E1BA597006A53E4 /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7CAC46DA2E14233A00282EEC /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
 		};
 		7CAC45862E1422EA00282EEC /* GoogleSignIn */ = {
 			isa = XCSwiftPackageProductDependency;

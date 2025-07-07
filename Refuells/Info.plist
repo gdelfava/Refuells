@@ -2,16 +2,20 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleURLTypes</key>
-    <array>
-        <dict>
-            <key>CFBundleURLSchemes</key>
-            <array>
-                <string>com.googleusercontent.apps.208266705908-k6e6fpnama9qdh8rup3mve6kqnmovbgj</string>
-            </array>
-        </dict>
-    </array>
-    <key>GIDClientID</key>
-    <string>208266705908-k6e6fpnama9qdh8rup3mve6kqnmovbgj.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.208266705908-k6e6fpnama9qdh8rup3mve6kqnmovbgj</string>
+			</array>
+		</dict>
+	</array>
+	<key>GIDClientID</key>
+	<string>208266705908-k6e6fpnama9qdh8rup3mve6kqnmovbgj.apps.googleusercontent.com</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs access to your photo library to upload vehicle images.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs access to your camera to take photos of your vehicles.</string>
 </dict>
-</plist> 
+</plist>

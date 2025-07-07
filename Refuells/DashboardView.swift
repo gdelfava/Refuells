@@ -54,6 +54,28 @@ struct DashboardView: View {
                 .tag(4)
         }
         .accentColor(.blue)
+        .overlay(
+            // Network status indicator (for debugging)
+            VStack {
+                if firebaseManager.networkStatus != "Connected" {
+                    HStack {
+                        Image(systemName: "wifi.slash")
+                            .foregroundColor(.orange)
+                        Text("Network: \(firebaseManager.networkStatus)")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                    .padding(.top, 50) // Account for safe area
+                }
+                Spacer()
+            }
+        )
     }
 }
 

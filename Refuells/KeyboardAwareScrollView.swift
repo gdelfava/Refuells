@@ -19,7 +19,7 @@ struct KeyboardAwareScrollView<Content: View>: View {
     var body: some View {
         ScrollView {
             content
-                .padding(.bottom, keyboardManager.keyboardHeight)
+                .padding(.bottom, keyboardManager.keyboardHeight.safeValue)
         }
         .animation(.easeOut(duration: 0.16), value: keyboardManager.keyboardHeight)
         .onTapGesture {
@@ -44,7 +44,7 @@ struct KeyboardAwareModifier: ViewModifier {
     
     func body(content: Content) -> some View {
         content
-            .padding(.bottom, keyboardManager.keyboardHeight)
+            .padding(.bottom, keyboardManager.keyboardHeight.safeValue)
             .animation(.easeOut(duration: 0.16), value: keyboardManager.keyboardHeight)
             .onTapGesture {
                 hideKeyboard()

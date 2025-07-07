@@ -183,13 +183,13 @@ struct AnalyticsCard: View {
 struct ChartView: View {
     var body: some View {
         VStack {
-            // Simple chart representation
+            // Simple chart representation with deterministic heights
             HStack(alignment: .bottom, spacing: 8) {
                 ForEach(0..<7, id: \.self) { index in
                     VStack {
                         RoundedRectangle(cornerRadius: 4)
                             .fill(Color.blue.opacity(0.7))
-                            .frame(width: 30, height: CGFloat.random(in: 50...150))
+                            .frame(width: 30, height: chartHeight(for: index))
                         
                         Text("D\(index + 1)")
                             .font(.caption2)
@@ -207,6 +207,12 @@ struct ChartView: View {
         .padding()
         .background(Color(.systemGray6))
         .cornerRadius(12)
+    }
+    
+    // Deterministic height calculation to avoid NaN values
+    private func chartHeight(for index: Int) -> CGFloat {
+        let heights: [CGFloat] = [60, 90, 45, 120, 75, 100, 85]
+        return heights[index % heights.count]
     }
 }
 

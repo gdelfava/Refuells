@@ -11,6 +11,7 @@ import FirebaseAuth
 import GoogleSignIn
 import GoogleSignInSwift
 import AuthenticationServices
+import Network
 
 class FirebaseManager: NSObject, ObservableObject {
     static let shared = FirebaseManager()
@@ -19,11 +20,31 @@ class FirebaseManager: NSObject, ObservableObject {
     @Published var currentUser: User?
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var networkStatus = "Unknown"
+    
+    private let networkMonitor = NWPathMonitor()
+    private let networkQueue = DispatchQueue(label: "NetworkMonitor")
     
     private override init() {
         super.init()
+        setupNetworkMonitoring()
         setupFirebase()
         checkAuthState()
+    }
+    
+    private func setupNetworkMonitoring() {
+        networkMonitor.pathUpdateHandler = { [weak self] path in
+            DispatchQueue.main.async {
+                if path.status == .satisfied {
+                    self?.networkStatus = "Connected"
+                    print("✅ Network connection available")
+                } else {
+                    self?.networkStatus = "Disconnected"
+                    print("❌ No network connection")
+                }
+            }
+        }
+        networkMonitor.start(queue: networkQueue)
     }
     
     private func setupFirebase() {
@@ -31,8 +52,27 @@ class FirebaseManager: NSObject, ObservableObject {
         if FirebaseApp.app() == nil {
             FirebaseApp.configure()
             print("✅ Firebase configured successfully")
+            
+            // Test Firebase connection
+            testFirebaseConnection()
         } else {
             print("ℹ️ Firebase already configured")
+        }
+    }
+    
+    private func testFirebaseConnection() {
+        // Test Firestore connection
+        let db = Firestore.firestore()
+        db.collection("test").document("connection").getDocument { document, error in
+            if let error = error {
+                print("⚠️ Firebase connection test failed: \(error.localizedDescription)")
+                print("🔍 This might be due to:")
+                print("   - Network connectivity issues")
+                print("   - Firebase project not properly configured")
+                print("   - Simulator network limitations")
+            } else {
+                print("✅ Firebase connection test successful")
+            }
         }
     }
     

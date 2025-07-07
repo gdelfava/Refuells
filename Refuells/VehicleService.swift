@@ -1,12 +1,10 @@
 import Foundation
 import FirebaseFirestore
-import FirebaseStorage
 import FirebaseAuth
+import UIKit
 
 class VehicleService: ObservableObject {
     private let db = Firestore.firestore()
-    private let storage = Storage.storage()
-    
     @Published var vehicles: [Vehicle] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -15,8 +13,6 @@ class VehicleService: ObservableObject {
         fetchVehicles()
     }
     
-    // MARK: - CRUD Operations
-    
     func fetchVehicles() {
         guard let userId = Auth.auth().currentUser?.uid else {
             errorMessage = "User not authenticated"
@@ -24,8 +20,10 @@ class VehicleService: ObservableObject {
         }
         
         isLoading = true
+        errorMessage = nil
         
         db.collection("users").document(userId).collection("vehicles")
+            .order(by: "createdAt", descending: true)
             .addSnapshotListener { [weak self] querySnapshot, error in
                 DispatchQueue.main.async {
                     self?.isLoading = false
@@ -47,172 +45,122 @@ class VehicleService: ObservableObject {
             }
     }
     
-    func addVehicle(_ vehicle: Vehicle, completion: @escaping (Result<Vehicle, Error>) -> Void) {
+    func addVehicle(_ vehicle: Vehicle) {
         guard let userId = Auth.auth().currentUser?.uid else {
-            completion(.failure(VehicleError.userNotAuthenticated))
+            errorMessage = "User not authenticated"
             return
         }
         
-        var newVehicle = vehicle
-        newVehicle.id = UUID()
+        isLoading = true
+        errorMessage = nil
         
         do {
-            let docRef = try db.collection("users").document(userId).collection("vehicles").addDocument(from: newVehicle)
-            newVehicle.id = UUID(uuidString: docRef.documentID) ?? vehicle.id
-            completion(.success(newVehicle))
-        } catch {
-            completion(.failure(error))
-        }
-    }
-    
-    func updateVehicle(_ vehicle: Vehicle, completion: @escaping (Result<Vehicle, Error>) -> Void) {
-        guard let userId = Auth.auth().currentUser?.uid else {
-            completion(.failure(VehicleError.userNotAuthenticated))
-            return
-        }
-        
-        do {
-            try db.collection("users").document(userId).collection("vehicles").document(vehicle.id.uuidString).setData(from: vehicle)
-            completion(.success(vehicle))
-        } catch {
-            completion(.failure(error))
-        }
-    }
-    
-    func deleteVehicle(_ vehicle: Vehicle, completion: @escaping (Result<Void, Error>) -> Void) {
-        guard let userId = Auth.auth().currentUser?.uid else {
-            completion(.failure(VehicleError.userNotAuthenticated))
-            return
-        }
-        
-        // Delete associated files from Storage
-        deleteVehicleFiles(vehicle) { [weak self] result in
-            switch result {
-            case .success:
-                // Delete document from Firestore
-                self?.db.collection("users").document(userId).collection("vehicles").document(vehicle.id.uuidString).delete { error in
-                    DispatchQueue.main.async {
-                        if let error = error {
-                            completion(.failure(error))
-                        } else {
-                            completion(.success(()))
-                        }
-                    }
-                }
-            case .failure(let error):
-                completion(.failure(error))
-            }
-        }
-    }
-    
-    // MARK: - File Upload Operations
-    
-    func uploadFile(_ data: Data, fileName: String, vehicleId: String, completion: @escaping (Result<String, Error>) -> Void) {
-        guard let userId = Auth.auth().currentUser?.uid else {
-            completion(.failure(VehicleError.userNotAuthenticated))
-            return
-        }
-        
-        let storageRef = storage.reference().child("users/\(userId)/vehicles/\(vehicleId)/\(fileName)")
-        
-        let metadata = StorageMetadata()
-        metadata.contentType = "application/octet-stream"
-        
-        storageRef.putData(data, metadata: metadata) { metadata, error in
-            if let error = error {
-                completion(.failure(error))
-                return
-            }
-            
-            storageRef.downloadURL { url, error in
-                if let error = error {
-                    completion(.failure(error))
-                } else if let url = url {
-                    completion(.success(url.absoluteString))
-                } else {
-                    completion(.failure(VehicleError.uploadFailed))
-                }
-            }
-        }
-    }
-    
-    func downloadFile(fileName: String, vehicleId: String, completion: @escaping (Result<Data, Error>) -> Void) {
-        guard let userId = Auth.auth().currentUser?.uid else {
-            completion(.failure(VehicleError.userNotAuthenticated))
-            return
-        }
-        
-        let storageRef = storage.reference().child("users/\(userId)/vehicles/\(vehicleId)/\(fileName)")
-        
-        storageRef.getData(maxSize: 10 * 1024 * 1024) { data, error in
-            if let error = error {
-                completion(.failure(error))
-            } else if let data = data {
-                completion(.success(data))
-            } else {
-                completion(.failure(VehicleError.downloadFailed))
-            }
-        }
-    }
-    
-    private func deleteVehicleFiles(_ vehicle: Vehicle, completion: @escaping (Result<Void, Error>) -> Void) {
-        guard let userId = Auth.auth().currentUser?.uid else {
-            completion(.failure(VehicleError.userNotAuthenticated))
-            return
-        }
-        
-        let storageRef = storage.reference().child("users/\(userId)/vehicles/\(vehicle.id.uuidString)")
-        
-        storageRef.listAll { result, error in
-            if let error = error {
-                completion(.failure(error))
-                return
-            }
-            
-            guard let items = result?.items else {
-                completion(.success(()))
-                return
-            }
-            
-            let group = DispatchGroup()
-            var deleteError: Error?
-            
-            for item in items {
-                group.enter()
-                item.delete { error in
+            try db.collection("users").document(userId).collection("vehicles").addDocument(from: vehicle) { [weak self] error in
+                DispatchQueue.main.async {
+                    self?.isLoading = false
                     if let error = error {
-                        deleteError = error
+                        self?.errorMessage = "Error adding vehicle: \(error.localizedDescription)"
                     }
-                    group.leave()
                 }
             }
-            
-            group.notify(queue: .main) {
-                if let error = deleteError {
-                    completion(.failure(error))
-                } else {
-                    completion(.success(()))
+        } catch {
+            DispatchQueue.main.async {
+                self.isLoading = false
+                self.errorMessage = "Error adding vehicle: \(error.localizedDescription)"
+            }
+        }
+    }
+    
+    func updateVehicle(_ vehicle: Vehicle) {
+        guard let userId = Auth.auth().currentUser?.uid,
+              let vehicleId = vehicle.id else {
+            errorMessage = "Invalid vehicle data"
+            return
+        }
+        
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            try db.collection("users").document(userId).collection("vehicles").document(vehicleId).setData(from: vehicle) { [weak self] error in
+                DispatchQueue.main.async {
+                    self?.isLoading = false
+                    if let error = error {
+                        self?.errorMessage = "Error updating vehicle: \(error.localizedDescription)"
+                    }
+                }
+            }
+        } catch {
+            DispatchQueue.main.async {
+                self.isLoading = false
+                self.errorMessage = "Error updating vehicle: \(error.localizedDescription)"
+            }
+        }
+    }
+    
+    func deleteVehicle(_ vehicle: Vehicle) {
+        guard let userId = Auth.auth().currentUser?.uid,
+              let vehicleId = vehicle.id else {
+            errorMessage = "Invalid vehicle data"
+            return
+        }
+        
+        isLoading = true
+        errorMessage = nil
+        
+        db.collection("users").document(userId).collection("vehicles").document(vehicleId).delete { [weak self] error in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+                if let error = error {
+                    self?.errorMessage = "Error deleting vehicle: \(error.localizedDescription)"
                 }
             }
         }
     }
-}
-
-// MARK: - Error Types
-
-enum VehicleError: LocalizedError {
-    case userNotAuthenticated
-    case uploadFailed
-    case downloadFailed
     
-    var errorDescription: String? {
-        switch self {
-        case .userNotAuthenticated:
-            return "User not authenticated"
-        case .uploadFailed:
-            return "Failed to upload file"
-        case .downloadFailed:
-            return "Failed to download file"
+    func saveImage(_ image: UIImage) -> String? {
+        print("🖼️ Attempting to save image...")
+        guard let imageData = image.jpegData(compressionQuality: 0.7) else {
+            print("❌ Failed to compress image")
+            errorMessage = "Failed to compress image"
+            return nil
         }
+        
+        let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let fileName = "vehicle_\(UUID().uuidString).jpg"
+        let fileURL = documentsDirectory.appendingPathComponent(fileName)
+        
+        print("📁 Saving image to: \(fileURL.path)")
+        
+        do {
+            try imageData.write(to: fileURL)
+            print("✅ Image saved successfully: \(fileName)")
+            return fileName
+        } catch {
+            print("❌ Failed to save image: \(error.localizedDescription)")
+            errorMessage = "Failed to save image: \(error.localizedDescription)"
+            return nil
+        }
+    }
+    
+    func loadImage(from path: String) -> UIImage? {
+        print("🖼️ Attempting to load image from: \(path)")
+        let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let fileURL = documentsDirectory.appendingPathComponent(path)
+        
+        print("📁 Loading image from: \(fileURL.path)")
+        
+        guard let imageData = try? Data(contentsOf: fileURL) else {
+            print("❌ Failed to load image data")
+            return nil
+        }
+        
+        guard let image = UIImage(data: imageData) else {
+            print("❌ Failed to create UIImage from data")
+            return nil
+        }
+        
+        print("✅ Image loaded successfully")
+        return image
     }
 } 
