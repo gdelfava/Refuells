@@ -5,6 +5,7 @@ import UIKit
 
 class VehicleService: ObservableObject {
     private let db = Firestore.firestore()
+    private let storageService = FirebaseStorageService()
     @Published var vehicles: [Vehicle] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -108,6 +109,19 @@ class VehicleService: ObservableObject {
         isLoading = true
         errorMessage = nil
         
+        // First delete the image from Firebase Storage if it exists
+        if vehicle.imageURL != nil {
+            Task {
+                do {
+                    try await storageService.deleteVehicleImage(for: vehicleId)
+                    print("✅ Vehicle image deleted from storage")
+                } catch {
+                    print("⚠️ Failed to delete vehicle image: \(error.localizedDescription)")
+                }
+            }
+        }
+        
+        // Then delete the vehicle document
         db.collection("users").document(userId).collection("vehicles").document(vehicleId).delete { [weak self] error in
             DispatchQueue.main.async {
                 self?.isLoading = false
@@ -118,49 +132,21 @@ class VehicleService: ObservableObject {
         }
     }
     
-    func saveImage(_ image: UIImage) -> String? {
-        print("🖼️ Attempting to save image...")
-        guard let imageData = image.jpegData(compressionQuality: 0.7) else {
-            print("❌ Failed to compress image")
-            errorMessage = "Failed to compress image"
-            return nil
-        }
-        
-        let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let fileName = "vehicle_\(UUID().uuidString).jpg"
-        let fileURL = documentsDirectory.appendingPathComponent(fileName)
-        
-        print("📁 Saving image to: \(fileURL.path)")
-        
-        do {
-            try imageData.write(to: fileURL)
-            print("✅ Image saved successfully: \(fileName)")
-            return fileName
-        } catch {
-            print("❌ Failed to save image: \(error.localizedDescription)")
-            errorMessage = "Failed to save image: \(error.localizedDescription)"
-            return nil
-        }
+    // MARK: - Image Management
+    
+    func uploadVehicleImage(_ image: UIImage, for vehicleId: String) async throws -> String {
+        return try await storageService.uploadVehicleImage(image, for: vehicleId)
     }
     
-    func loadImage(from path: String) -> UIImage? {
-        print("🖼️ Attempting to load image from: \(path)")
-        let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let fileURL = documentsDirectory.appendingPathComponent(path)
-        
-        print("📁 Loading image from: \(fileURL.path)")
-        
-        guard let imageData = try? Data(contentsOf: fileURL) else {
-            print("❌ Failed to load image data")
-            return nil
-        }
-        
-        guard let image = UIImage(data: imageData) else {
-            print("❌ Failed to create UIImage from data")
-            return nil
-        }
-        
-        print("✅ Image loaded successfully")
-        return image
+    func downloadVehicleImage(from urlString: String) async throws -> UIImage {
+        return try await storageService.downloadVehicleImage(from: urlString)
+    }
+    
+    func deleteVehicleImage(for vehicleId: String) async throws {
+        try await storageService.deleteVehicleImage(for: vehicleId)
+    }
+    
+    func imageExists(for vehicleId: String) async -> Bool {
+        return await storageService.imageExists(for: vehicleId)
     }
 } 
