@@ -8,11 +8,16 @@
 import SwiftUI
 
 struct AnalyticsView: View {
+    var body: some View {
+        AnalyticsViewContent()
+    }
+}
+
+struct AnalyticsViewContent: View {
     @State private var selectedTimeframe = 0
     private let timeframes = ["Week", "Month", "Year"]
     
         var body: some View {
-        MenuWrapperView {
             NavigationStack {
                 ScrollView {
                     VStack(spacing: 20) {
@@ -114,6 +119,7 @@ struct AnalyticsView: View {
                 }
                 .navigationTitle("Drive")
                 .navigationBarTitleDisplayMode(.large)
+                .withMenuButton()
                 .overlay(
                     VStack {
                         Spacer()
@@ -136,7 +142,6 @@ struct AnalyticsView: View {
                         }
                     }
                 )
-            }
         }
     }
 }

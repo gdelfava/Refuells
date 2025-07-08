@@ -8,6 +8,12 @@
 import SwiftUI
 
 struct TripsView: View {
+    var body: some View {
+        TripsViewContent()
+    }
+}
+
+struct TripsViewContent: View {
     @State private var showingAddTrip = false
     @State private var trips: [Trip] = [
         Trip(
@@ -43,8 +49,7 @@ struct TripsView: View {
     ]
     
     var body: some View {
-        MenuWrapperView {
-            NavigationStack {
+        NavigationStack {
                 VStack {
                     // Trips list
                     ScrollView {
@@ -84,7 +89,6 @@ struct TripsView: View {
                 .onAppear {
                     print("TripsView appeared")
                 }
-            }
         }
         .sheet(isPresented: $showingAddTrip) {
             AddTripView(trips: $trips)

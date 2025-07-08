@@ -8,6 +8,12 @@
 import SwiftUI
 
 struct FuelLogView: View {
+    var body: some View {
+        FuelLogViewContent()
+    }
+}
+
+struct FuelLogViewContent: View {
     @State private var showingAddFuel = false
     @State private var fuelEntries: [FuelEntry] = [
         FuelEntry(date: Date(), liters: 45.2, cost: 89.50, station: "Shell Station", odometer: 1234),
@@ -16,7 +22,6 @@ struct FuelLogView: View {
     ]
     
     var body: some View {
-        MenuWrapperView {
             NavigationStack {
                 VStack {
                     // Fuel entries list
@@ -53,7 +58,6 @@ struct FuelLogView: View {
                         }
                     }
                 )
-            }
         }
         .sheet(isPresented: $showingAddFuel) {
             AddFuelView(fuelEntries: $fuelEntries)

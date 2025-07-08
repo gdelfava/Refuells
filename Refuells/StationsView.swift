@@ -9,6 +9,12 @@ import SwiftUI
 import PhotosUI
 
 struct StationsView: View {
+    var body: some View {
+        StationsViewContent()
+    }
+}
+
+struct StationsViewContent: View {
     @StateObject private var firebaseManager = FirebaseManager.shared
     @State private var showingAddStation = false
     @State private var stations: [Station] = []
@@ -16,7 +22,6 @@ struct StationsView: View {
     @State private var errorMessage: String?
     
     var body: some View {
-                MenuWrapperView {
             NavigationStack {
                 ZStack {
                     VStack {
@@ -83,7 +88,6 @@ struct StationsView: View {
                         }
                     }
                 }
-            }
         }
         .sheet(isPresented: $showingAddStation) {
             AddStationView(stations: $stations, onStationAdded: {

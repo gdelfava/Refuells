@@ -12,48 +12,50 @@ struct DashboardView: View {
     @State private var selectedTab = 0
     
     var body: some View {
-        TabView(selection: $selectedTab) {
-            // Trips Tab
-            TripsView()
-                .tabItem {
-                    Image(systemName: "map.fill")
-                    Text("Trips")
-                }
-                .tag(0)
-            
-            // Refuels Tab
-            FuelLogView()
-                .tabItem {
-                    Image(systemName: "fuelpump.fill")
-                    Text("Refuels")
-                }
-                .tag(1)
-            
-            // Stations Tab
-            StationsView()
-                .tabItem {
-                    Image(systemName: "building.2.fill")
-                    Text("Stations")
-                }
-                .tag(2)
-            
-            // Reports Tab
-            DashboardHomeView()
-                .tabItem {
-                    Image(systemName: "doc.text.fill")
-                    Text("Reports")
-                }
-                .tag(3)
-            
-            // Drive Tab
-            AnalyticsView()
-                .tabItem {
-                    Image(systemName: "car.fill")
-                    Text("Drive")
-                }
-                .tag(4)
+        MenuWrapperView {
+            TabView(selection: $selectedTab) {
+                // Trips Tab
+                TripsViewContent()
+                    .tabItem {
+                        Image(systemName: "map.fill")
+                        Text("Trips")
+                    }
+                    .tag(0)
+                
+                // Refuels Tab
+                FuelLogViewContent()
+                    .tabItem {
+                        Image(systemName: "fuelpump.fill")
+                        Text("Refuels")
+                    }
+                    .tag(1)
+                
+                // Stations Tab
+                StationsViewContent()
+                    .tabItem {
+                        Image(systemName: "building.2.fill")
+                        Text("Stations")
+                    }
+                    .tag(2)
+                
+                // Reports Tab
+                DashboardHomeViewContent()
+                    .tabItem {
+                        Image(systemName: "doc.text.fill")
+                        Text("Reports")
+                    }
+                    .tag(3)
+                
+                // Drive Tab
+                AnalyticsViewContent()
+                    .tabItem {
+                        Image(systemName: "car.fill")
+                        Text("Drive")
+                    }
+                    .tag(4)
+            }
+            .accentColor(.blue)
         }
-        .accentColor(.blue)
         .overlay(
             // Network status indicator (for debugging)
             VStack {
@@ -81,6 +83,12 @@ struct DashboardView: View {
 
 // Dashboard Home View
 struct DashboardHomeView: View {
+    var body: some View {
+        DashboardHomeViewContent()
+    }
+}
+
+struct DashboardHomeViewContent: View {
     @StateObject private var firebaseManager = FirebaseManager.shared
     
     private func formatPrice(_ price: Double) -> String {
@@ -91,7 +99,6 @@ struct DashboardHomeView: View {
     }
     
         var body: some View {
-        MenuWrapperView {
             NavigationStack {
                 VStack(spacing: 20) {
                     
@@ -174,6 +181,7 @@ struct DashboardHomeView: View {
                 }
                 .navigationTitle("Reports")
                 .navigationBarTitleDisplayMode(.large)
+                .withMenuButton()
                 .overlay(
                     VStack {
                         Spacer()
@@ -196,7 +204,6 @@ struct DashboardHomeView: View {
                         }
                     }
                 )
-            }
         }
     }
 }
