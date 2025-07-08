@@ -29,4 +29,7 @@ GoogleService-Info.plist
 
 # Xcode automatically generates this directory with a .xcworkspacedata file and xcuserdata
 # hence it is not needed unless you have added a package dependency
-.swiftpm/ 
+.swiftpm/
+
+# Firebase configuration
+Refuells/GoogleService-Info.plist 
