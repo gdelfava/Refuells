@@ -8,6 +8,7 @@
 import Foundation
 import Firebase
 import FirebaseAuth
+import FirebaseStorage
 import GoogleSignIn
 import GoogleSignInSwift
 import AuthenticationServices
@@ -179,6 +180,80 @@ class FirebaseManager: NSObject, ObservableObject {
         } catch {
             print("❌ Sign out error: \(error.localizedDescription)")
             errorMessage = error.localizedDescription
+        }
+    }
+    
+    // MARK: - Firebase Storage Methods
+    
+    func uploadVehicleImage(_ image: UIImage, vehicleId: String, completion: @escaping (Result<String, Error>) -> Void) {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            completion(.failure(NSError(domain: "FirebaseManager", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])))
+            return
+        }
+        
+        guard let imageData = image.jpegData(compressionQuality: 0.7) else {
+            completion(.failure(NSError(domain: "FirebaseManager", code: 400, userInfo: [NSLocalizedDescriptionKey: "Failed to compress image"])))
+            return
+        }
+        
+        let storage = Storage.storage()
+        let storageRef = storage.reference()
+        let imagePath = "users/\(userId)/vehicles/\(vehicleId)/vehicle_image.jpg"
+        let imageRef = storageRef.child(imagePath)
+        
+        print("📤 Uploading image to Firebase Storage: \(imagePath)")
+        
+        let metadata = StorageMetadata()
+        metadata.contentType = "image/jpeg"
+        
+        imageRef.putData(imageData, metadata: metadata) { metadata, error in
+            if let error = error {
+                print("❌ Upload failed: \(error.localizedDescription)")
+                completion(.failure(error))
+                return
+            }
+            
+            // Get download URL
+            imageRef.downloadURL { url, error in
+                if let error = error {
+                    print("❌ Failed to get download URL: \(error.localizedDescription)")
+                    completion(.failure(error))
+                    return
+                }
+                
+                guard let downloadURL = url else {
+                    completion(.failure(NSError(domain: "FirebaseManager", code: 500, userInfo: [NSLocalizedDescriptionKey: "Failed to get download URL"])))
+                    return
+                }
+                
+                print("✅ Image uploaded successfully: \(downloadURL.absoluteString)")
+                completion(.success(downloadURL.absoluteString))
+            }
+        }
+    }
+    
+    func deleteVehicleImage(vehicleId: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            completion(.failure(NSError(domain: "FirebaseManager", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])))
+            return
+        }
+        
+        let storage = Storage.storage()
+        let storageRef = storage.reference()
+        let imagePath = "users/\(userId)/vehicles/\(vehicleId)/vehicle_image.jpg"
+        let imageRef = storageRef.child(imagePath)
+        
+        print("🗑️ Deleting image from Firebase Storage: \(imagePath)")
+        
+        imageRef.delete { error in
+            if let error = error {
+                print("❌ Delete failed: \(error.localizedDescription)")
+                completion(.failure(error))
+                return
+            }
+            
+            print("✅ Image deleted successfully")
+            completion(.success(()))
         }
     }
 }

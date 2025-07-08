@@ -79,25 +79,13 @@ struct VehiclesView: View {
 struct VehicleRowView: View {
     let vehicle: Vehicle
     let vehicleService: VehicleService
-    @State private var vehicleImage: UIImage?
-    @State private var isLoadingImage = false
     
     var body: some View {
         HStack(spacing: 12) {
-            if let vehicleImage = vehicleImage {
-                Image(uiImage: vehicleImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
+            if let imageURL = vehicle.imageURL {
+                AsyncImageView(url: imageURL, placeholder: "car.fill", contentMode: .fill)
                     .frame(width: 60, height: 60)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
-            } else if isLoadingImage {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.gray.opacity(0.3))
-                    .frame(width: 60, height: 60)
-                    .overlay(
-                        ProgressView()
-                            .scaleEffect(0.8)
-                    )
             } else {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.gray.opacity(0.3))
@@ -130,29 +118,6 @@ struct VehicleRowView: View {
             }
         }
         .padding(.vertical, 4)
-        .onAppear {
-            loadVehicleImage()
-        }
-    }
-    
-    private func loadVehicleImage() {
-        guard let imageURL = vehicle.imageURL, vehicleImage == nil else { return }
-        
-        isLoadingImage = true
-        Task {
-            do {
-                let image = try await vehicleService.downloadVehicleImage(from: imageURL)
-                await MainActor.run {
-                    vehicleImage = image
-                    isLoadingImage = false
-                }
-            } catch {
-                print("Failed to load vehicle image: \(error.localizedDescription)")
-                await MainActor.run {
-                    isLoadingImage = false
-                }
-            }
-        }
     }
 }
 
@@ -241,77 +206,45 @@ struct AddVehicleView: View {
     private func saveVehicle() {
         guard let capacity = Double(tankCapacity) else { return }
         
-        Task {
-            var imageURL: String?
+        // Create vehicle first without image URL
+        let vehicle = Vehicle(
+            name: name,
+            make: make,
+            model: model,
+            year: year,
+            fuelType: fuelType,
+            tankCapacity: capacity,
+            imageURL: nil
+        )
+        
+        // Add vehicle to get the ID
+        vehicleService.addVehicle(vehicle) { vehicleId in
+            guard let vehicleId = vehicleId else { return }
             
-            if let vehicleImage = vehicleImage {
-                do {
-                    // Create a temporary vehicle to get an ID for the image path
-                    let tempVehicle = Vehicle(
-                        name: name,
-                        make: make,
-                        model: model,
-                        year: year,
-                        fuelType: fuelType,
-                        tankCapacity: capacity
-                    )
-                    
-                    // Add the vehicle first to get an ID
-                    vehicleService.addVehicle(tempVehicle)
-                    
-                    // Wait a moment for the ID to be assigned
-                    try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-                    
-                    // Find the vehicle we just added to get its ID
-                    if let addedVehicle = vehicleService.vehicles.first(where: { 
-                        $0.name == name && $0.make == make && $0.model == model 
-                    }) {
-                        // Upload the image
-                        imageURL = try await vehicleService.uploadVehicleImage(vehicleImage, for: addedVehicle.id!)
-                        
-                        // Update the vehicle with the image URL
-                        let updatedVehicle = addedVehicle.updated(
-                            name: name,
-                            make: make,
-                            model: model,
-                            year: year,
-                            fuelType: fuelType,
-                            tankCapacity: capacity,
+            // Upload image if selected
+            if let vehicleImage = self.vehicleImage {
+                self.vehicleService.uploadVehicleImage(vehicleImage, vehicleId: vehicleId) { result in
+                    switch result {
+                    case .success(let imageURL):
+                        // Update vehicle with image URL
+                        let updatedVehicle = vehicle.updated(
+                            name: vehicle.name,
+                            make: vehicle.make,
+                            model: vehicle.model,
+                            year: vehicle.year,
+                            fuelType: vehicle.fuelType,
+                            tankCapacity: vehicle.tankCapacity,
                             imageURL: imageURL
                         )
-                        
-                        vehicleService.updateVehicle(updatedVehicle)
+                        self.vehicleService.updateVehicle(updatedVehicle)
+                    case .failure(let error):
+                        print("Failed to upload image: \(error.localizedDescription)")
                     }
-                } catch {
-                    print("Failed to upload image: \(error.localizedDescription)")
-                    // Still create the vehicle without image
-                    let vehicle = Vehicle(
-                        name: name,
-                        make: make,
-                        model: model,
-                        year: year,
-                        fuelType: fuelType,
-                        tankCapacity: capacity
-                    )
-                    vehicleService.addVehicle(vehicle)
                 }
-            } else {
-                // No image selected
-                let vehicle = Vehicle(
-                    name: name,
-                    make: make,
-                    model: model,
-                    year: year,
-                    fuelType: fuelType,
-                    tankCapacity: capacity
-                )
-                vehicleService.addVehicle(vehicle)
-            }
-            
-            await MainActor.run {
-                dismiss()
             }
         }
+        
+        dismiss()
     }
 }
 
@@ -325,7 +258,20 @@ struct VehicleDetailView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 20) {
-                    VehicleDetailImageView(vehicle: vehicle, vehicleService: vehicleService)
+                    if let imageURL = vehicle.imageURL {
+                        AsyncImageView(url: imageURL, placeholder: "car.fill", contentMode: .fill)
+                            .frame(height: 250)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                    } else {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(height: 250)
+                            .overlay(
+                                Image(systemName: "car.fill")
+                                    .font(.system(size: 60))
+                                    .foregroundColor(.gray)
+                            )
+                    }
                     
                     VStack(alignment: .leading, spacing: 16) {
                         DetailRow(title: "Name", value: vehicle.name)
@@ -376,64 +322,6 @@ struct DetailRow: View {
             Spacer()
             Text(value)
                 .fontWeight(.semibold)
-        }
-    }
-}
-
-struct VehicleDetailImageView: View {
-    let vehicle: Vehicle
-    let vehicleService: VehicleService
-    @State private var vehicleImage: UIImage?
-    @State private var isLoadingImage = false
-    
-    var body: some View {
-        Group {
-            if let vehicleImage = vehicleImage {
-                Image(uiImage: vehicleImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(height: 250)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-            } else if isLoadingImage {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.gray.opacity(0.3))
-                    .frame(height: 250)
-                    .overlay(
-                        ProgressView("Loading image...")
-                            .foregroundColor(.gray)
-                    )
-            } else {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.gray.opacity(0.3))
-                    .frame(height: 250)
-                    .overlay(
-                        Image(systemName: "car.fill")
-                            .font(.system(size: 60))
-                            .foregroundColor(.gray)
-                    )
-            }
-        }
-        .onAppear {
-            loadVehicleImage()
-        }
-    }
-    
-    private func loadVehicleImage() {
-        guard let imageURL = vehicle.imageURL, vehicleImage == nil else { return }
-        isLoadingImage = true
-        Task {
-            do {
-                let image = try await vehicleService.downloadVehicleImage(from: imageURL)
-                await MainActor.run {
-                    vehicleImage = image
-                    isLoadingImage = false
-                }
-            } catch {
-                print("Failed to load vehicle image: \(error.localizedDescription)")
-                await MainActor.run {
-                    isLoadingImage = false
-                }
-            }
         }
     }
 }
@@ -521,15 +409,8 @@ struct EditVehicleView: View {
                 
                 // Load existing image if available
                 if let imageURL = vehicle.imageURL {
-                    Task {
-                        do {
-                            let image = try await vehicleService.downloadVehicleImage(from: imageURL)
-                            await MainActor.run {
-                                vehicleImage = image
-                            }
-                        } catch {
-                            print("Failed to load existing vehicle image: \(error.localizedDescription)")
-                        }
+                    vehicleService.loadImageFromURL(imageURL) { image in
+                        vehicleImage = image
                     }
                 }
             }
@@ -547,27 +428,43 @@ struct EditVehicleView: View {
     private func saveVehicle() {
         guard let capacity = Double(tankCapacity) else { return }
         
-        Task {
-            var imageURL: String? = vehicle.imageURL // Keep existing URL if no new image
+        // If a new image was selected, upload it first
+        if let vehicleImage = vehicleImage {
+            guard let vehicleId = vehicle.id else { return }
             
-            if let vehicleImage = vehicleImage {
-                // Check if this is a new image (not the same as existing)
-                let isNewImage = true // For simplicity, always treat as new image
-                
-                if isNewImage {
-                    do {
-                        // Upload the new image
-                        imageURL = try await vehicleService.uploadVehicleImage(vehicleImage, for: vehicle.id!)
-                        print("✅ New image uploaded successfully")
-                    } catch {
-                        print("❌ Failed to upload new image: \(error.localizedDescription)")
-                        // Keep the existing image URL if upload fails
-                        imageURL = vehicle.imageURL
-                    }
+            vehicleService.uploadVehicleImage(vehicleImage, vehicleId: vehicleId) { result in
+                switch result {
+                case .success(let imageURL):
+                    // Update vehicle with new image URL
+                    let updatedVehicle = self.vehicle.updated(
+                        name: self.name,
+                        make: self.make,
+                        model: self.model,
+                        year: self.year,
+                        fuelType: self.fuelType,
+                        tankCapacity: capacity,
+                        imageURL: imageURL
+                    )
+                    self.vehicleService.updateVehicle(updatedVehicle)
+                    self.dismiss()
+                case .failure(let error):
+                    print("Failed to upload image: \(error.localizedDescription)")
+                    // Update vehicle without image URL
+                    let updatedVehicle = self.vehicle.updated(
+                        name: self.name,
+                        make: self.make,
+                        model: self.model,
+                        year: self.year,
+                        fuelType: self.fuelType,
+                        tankCapacity: capacity,
+                        imageURL: self.vehicle.imageURL
+                    )
+                    self.vehicleService.updateVehicle(updatedVehicle)
+                    self.dismiss()
                 }
             }
-            
-            // Create updated vehicle using the Vehicle's updated method
+        } else {
+            // No new image selected, keep the original image URL
             let updatedVehicle = vehicle.updated(
                 name: name,
                 make: make,
@@ -575,14 +472,11 @@ struct EditVehicleView: View {
                 year: year,
                 fuelType: fuelType,
                 tankCapacity: capacity,
-                imageURL: imageURL
+                imageURL: vehicle.imageURL
             )
             
             vehicleService.updateVehicle(updatedVehicle)
-            
-            await MainActor.run {
-                dismiss()
-            }
+            dismiss()
         }
     }
 }
