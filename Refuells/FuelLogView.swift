@@ -73,6 +73,13 @@ struct FuelEntry: Identifiable {
 struct FuelEntryRow: View {
     let entry: FuelEntry
     
+    private func formatPrice(_ price: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = Locale.current
+        return formatter.string(from: NSNumber(value: price)) ?? ""
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -89,7 +96,7 @@ struct FuelEntryRow: View {
                 Spacer()
                 
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text("$\(String(format: "%.2f", entry.cost))")
+                    Text(formatPrice(entry.cost))
                         .font(.title3)
                         .fontWeight(.semibold)
                         .foregroundColor(.green)
@@ -107,7 +114,7 @@ struct FuelEntryRow: View {
                 
                 Spacer()
                 
-                Text("$\(String(format: "%.2f", entry.cost / entry.liters))/L")
+                Text("\(formatPrice(entry.cost / entry.liters))/L")
                     .font(.caption)
                     .foregroundColor(.blue)
             }

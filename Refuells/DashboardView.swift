@@ -83,6 +83,13 @@ struct DashboardView: View {
 struct DashboardHomeView: View {
     @StateObject private var firebaseManager = FirebaseManager.shared
     
+    private func formatPrice(_ price: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = Locale.current
+        return formatter.string(from: NSNumber(value: price)) ?? ""
+    }
+    
         var body: some View {
         MenuWrapperView {
             NavigationStack {
@@ -103,7 +110,7 @@ struct DashboardHomeView: View {
                                 
                                 StatCard(
                                     title: "Cost",
-                                    value: "$89.50",
+                                    value: formatPrice(89.50),
                                     icon: "dollarsign.circle.fill",
                                     color: .green
                                 )

@@ -9,21 +9,54 @@ import SwiftUI
 import MapKit
 
 struct StationDetailView: View {
-    let station: Station
+    @State private var station: Station
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var firebaseManager = FirebaseManager.shared
     @State private var isFavorite: Bool
     @State private var showingDirections = false
     @State private var showingEditForm = false
+    @State private var showingDeleteAlert = false
+    var onStationDeleted: (() -> Void)?
     
-    init(station: Station) {
-        self.station = station
+    init(station: Station, onStationDeleted: (() -> Void)? = nil) {
+        self._station = State(initialValue: station)
+        self.onStationDeleted = onStationDeleted
         self._isFavorite = State(initialValue: station.isFavorite)
     }
     
     var body: some View {
         NavigationStack {
-            ScrollView {
+            ScrollView(.vertical, showsIndicators: true) {
                 VStack(spacing: 20) {
+                    // Station image with loading state
+                    ZStack {
+                        if let image = station.image {
+                            Image(uiImage: image)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(height: 250)
+                                .frame(maxWidth: .infinity)
+                                .clipped()
+                                .cornerRadius(12)
+                        } else {
+                            // Placeholder with loading indicator
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(.systemGray5))
+                                .frame(height: 250)
+                                .frame(maxWidth: .infinity)
+                                .overlay(
+                                    VStack(spacing: 12) {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle())
+                                            .scaleEffect(1.2)
+                                        Text("Loading image...")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                )
+                        }
+                    }
+                    
                     // Header section
                     VStack(spacing: 12) {
                         HStack {
@@ -94,7 +127,7 @@ struct StationDetailView: View {
                         }
                         
                         Button(action: {
-                            // Delete station
+                            showingDeleteAlert = true
                         }) {
                             HStack {
                                 Image(systemName: "trash")
@@ -127,6 +160,10 @@ struct StationDetailView: View {
                                     )
                                 }
                             }
+                        }
+                        .onAppear {
+                            print("🔍 StationDetailView - Station prices: \(station.currentPrices)")
+                            print("🔍 StationDetailView - Fuel types: \(station.fuelTypes)")
                         }
                     }
                     
@@ -184,19 +221,90 @@ struct StationDetailView: View {
             }
             .navigationTitle("Station Details")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
+            .navigationBarItems(trailing: Button("Done") {
+                dismiss()
+            })
         }
         .sheet(isPresented: $showingDirections) {
             DirectionsView(station: station)
         }
         .sheet(isPresented: $showingEditForm) {
-            EditStationView(station: station)
+            EditStationView(station: station, onStationUpdated: {
+                // After station is updated, refresh both local and parent data
+                print("🔄 Station updated, refreshing data...")
+                refreshStationData()
+                onStationDeleted?() // This callback refreshes the stations list
+            })
+        }
+        .alert("Delete Station", isPresented: $showingDeleteAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                deleteStation()
+            }
+        } message: {
+            Text("Are you sure you want to delete '\(station.name)'? This action cannot be undone.")
+        }
+    }
+    
+    private func refreshStationData() {
+        // Fetch the updated station data from Firebase
+        firebaseManager.fetchStations { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let stations):
+                    // Find the updated station with matching ID
+                    if let updatedStation = stations.first(where: { $0.id == self.station.id }) {
+                        print("🔄 Refreshed station data: \(updatedStation.name)")
+                        print("🔄 Updated prices: \(updatedStation.currentPrices)")
+                        self.station = updatedStation
+                        self.isFavorite = updatedStation.isFavorite
+                        
+                        // Load the station image
+                        firebaseManager.loadStationImage(stationId: updatedStation.id.uuidString) { imageResult in
+                            DispatchQueue.main.async {
+                                switch imageResult {
+                                case .success(let image):
+                                    if let image = image {
+                                        self.station.image = image
+                                    }
+                                case .failure(let error):
+                                    print("Failed to load updated station image: \(error.localizedDescription)")
+                                }
+                            }
+                        }
+                    }
+                case .failure(let error):
+                    print("❌ Failed to refresh station data: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+    
+    private func deleteStation() {
+        firebaseManager.deleteStation(station.id.uuidString) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(_):
+                    // Also delete the image if it exists
+                    firebaseManager.deleteStationImage(stationId: station.id.uuidString) { imageResult in
+                        DispatchQueue.main.async {
+                            switch imageResult {
+                            case .success(_):
+                                print("✅ Station and image deleted successfully")
+                            case .failure(let error):
+                                print("⚠️ Station deleted but failed to delete image: \(error.localizedDescription)")
+                            }
+                            // Notify parent view that station was deleted
+                            onStationDeleted?()
+                            dismiss()
+                        }
+                    }
+                case .failure(let error):
+                    print("❌ Failed to delete station: \(error.localizedDescription)")
+                    // You could show an error alert here
+                    dismiss()
+                }
+            }
         }
     }
 }
@@ -205,6 +313,13 @@ struct FuelPriceCard: View {
     let fuelType: String
     let price: Double
     
+    private var formattedPrice: String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = Locale.current
+        return formatter.string(from: NSNumber(value: price)) ?? ""
+    }
+    
     var body: some View {
         VStack(spacing: 8) {
             Text(fuelType)
@@ -212,10 +327,13 @@ struct FuelPriceCard: View {
                 .fontWeight(.medium)
                 .foregroundColor(.secondary)
             
-            Text("$\(String(format: "%.2f", price))")
+            Text(formattedPrice)
                 .font(.title2)
                 .fontWeight(.bold)
                 .foregroundColor(.green)
+                .onAppear {
+                    print("🔍 FuelPriceCard - Displaying \(fuelType): \(formattedPrice)")
+                }
         }
         .frame(maxWidth: .infinity)
         .padding()
@@ -276,13 +394,9 @@ struct DirectionsView: View {
             }
             .navigationTitle("Directions")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
+            .navigationBarItems(trailing: Button("Done") {
+                dismiss()
+            })
         }
     }
 }
@@ -295,6 +409,7 @@ struct DirectionsView: View {
         currentPrices: ["Regular": 1.85, "Premium": 2.15, "Diesel": 1.95],
         rating: 4.5,
         distance: 2.3,
-        isFavorite: true
+        isFavorite: true,
+        image: nil
     ))
 } 

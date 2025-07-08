@@ -6,10 +6,13 @@
 //
 
 import SwiftUI
+import PhotosUI
 
 struct EditStationView: View {
     let station: Station
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var firebaseManager = FirebaseManager.shared
+    var onStationUpdated: (() -> Void)?
     
     @State private var name: String
     @State private var address: String
@@ -21,11 +24,15 @@ struct EditStationView: View {
     @State private var rating: Double
     @State private var distance: String
     @State private var isFavorite: Bool
+    @State private var selectedImage: UIImage?
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var isSaving = false
     
     private let availableFuelTypes = ["Regular", "Premium", "Diesel", "E85"]
     
-    init(station: Station) {
+    init(station: Station, onStationUpdated: (() -> Void)? = nil) {
         self.station = station
+        self.onStationUpdated = onStationUpdated
         self._name = State(initialValue: station.name)
         self._address = State(initialValue: station.address)
         self._selectedFuelTypes = State(initialValue: Set(station.fuelTypes))
@@ -33,14 +40,67 @@ struct EditStationView: View {
         self._premiumPrice = State(initialValue: station.currentPrices["Premium"]?.description ?? "")
         self._dieselPrice = State(initialValue: station.currentPrices["Diesel"]?.description ?? "")
         self._e85Price = State(initialValue: station.currentPrices["E85"]?.description ?? "")
+        
+        print("🔍 Initializing EditStationView with station data:")
+        print("   - Station prices: \(station.currentPrices)")
+        print("   - Regular price: \(station.currentPrices["Regular"]?.description ?? "nil")")
+        print("   - Premium price: \(station.currentPrices["Premium"]?.description ?? "nil")")
+        print("   - Diesel price: \(station.currentPrices["Diesel"]?.description ?? "nil")")
+        print("   - E85 price: \(station.currentPrices["E85"]?.description ?? "nil")")
+        print("   - Regular price field will be initialized to: '\(station.currentPrices["Regular"]?.description ?? "")'")
+        print("   - Premium price field will be initialized to: '\(station.currentPrices["Premium"]?.description ?? "")'")
+        print("   - Diesel price field will be initialized to: '\(station.currentPrices["Diesel"]?.description ?? "")'")
+        print("   - E85 price field will be initialized to: '\(station.currentPrices["E85"]?.description ?? "")'")
         self._rating = State(initialValue: station.rating)
         self._distance = State(initialValue: station.distance.description)
         self._isFavorite = State(initialValue: station.isFavorite)
+        self._selectedImage = State(initialValue: station.image)
     }
     
     var body: some View {
         NavigationStack {
             Form {
+                Section("Station Image") {
+                    VStack(spacing: 12) {
+                        if let image = selectedImage {
+                            Image(uiImage: image)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(height: 200)
+                                .frame(maxWidth: .infinity)
+                                .clipped()
+                                .cornerRadius(12)
+                        } else {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(.systemGray5))
+                                .frame(height: 200)
+                                .overlay(
+                                    VStack {
+                                        Image(systemName: "photo")
+                                            .font(.largeTitle)
+                                            .foregroundColor(.secondary)
+                                        Text("No Image Selected")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                )
+                        }
+                        
+                        PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                            HStack {
+                                Image(systemName: "photo.badge.plus")
+                                Text(selectedImage == nil ? "Add Photo" : "Change Photo")
+                            }
+                            .font(.headline)
+                            .foregroundColor(.blue)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(8)
+                        }
+                    }
+                }
+                
                 Section("Station Details") {
                     HStack {
                         Text("Name")
@@ -140,44 +200,162 @@ struct EditStationView: View {
                 }
                 
                 Section {
-                    Button("Save Changes") {
+                    Button(action: {
                         saveChanges()
+                    }) {
+                        HStack {
+                            if isSaving {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                Text("Saving...")
+                                    .foregroundColor(.white)
+                            } else {
+                                Text("Save Changes")
+                                    .foregroundColor(.white)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background(isSaving ? Color.gray : Color.blue)
+                        .cornerRadius(8)
                     }
-                    .disabled(name.isEmpty || address.isEmpty || selectedFuelTypes.isEmpty)
+                    .disabled(name.isEmpty || address.isEmpty || selectedFuelTypes.isEmpty || isSaving)
                 }
             }
-            .navigationTitle("Edit Station")
+            .navigationTitle(isSaving ? "Saving..." : "Edit Station")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .disabled(isSaving)
+                }
+            }
+            .onChange(of: selectedPhotoItem) { oldValue, newItem in
+                Task {
+                    if let data = try? await newItem?.loadTransferable(type: Data.self),
+                       let image = UIImage(data: data) {
+                        selectedImage = image
+                    }
                 }
             }
         }
     }
     
+    private func parsePrice(_ priceString: String) -> Double? {
+        // Remove any whitespace
+        let cleaned = priceString.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // If empty, return nil
+        if cleaned.isEmpty {
+            return nil
+        }
+        
+        // Try parsing with period first (standard format)
+        if let price = Double(cleaned) {
+            return price
+        }
+        
+        // Try parsing with comma (European format)
+        let commaReplaced = cleaned.replacingOccurrences(of: ",", with: ".")
+        if let price = Double(commaReplaced) {
+            return price
+        }
+        
+        // If it's just a whole number, convert to double
+        if let intValue = Int(cleaned) {
+            return Double(intValue)
+        }
+        
+        return nil
+    }
+    
     private func saveChanges() {
+        // Start saving state
+        isSaving = true
+        
         var prices: [String: Double] = [:]
         
-        if selectedFuelTypes.contains("Regular"), let price = Double(regularPrice) {
+        print("🔍 Price field values:")
+        print("   - Regular: '\(regularPrice)' -> \(Double(regularPrice) ?? 0)")
+        print("   - Premium: '\(premiumPrice)' -> \(Double(premiumPrice) ?? 0)")
+        print("   - Diesel: '\(dieselPrice)' -> \(Double(dieselPrice) ?? 0)")
+        print("   - E85: '\(e85Price)' -> \(Double(e85Price) ?? 0)")
+        
+        if selectedFuelTypes.contains("Regular"), let price = parsePrice(regularPrice) {
             prices["Regular"] = price
         }
-        if selectedFuelTypes.contains("Premium"), let price = Double(premiumPrice) {
+        if selectedFuelTypes.contains("Premium"), let price = parsePrice(premiumPrice) {
             prices["Premium"] = price
         }
-        if selectedFuelTypes.contains("Diesel"), let price = Double(dieselPrice) {
+        if selectedFuelTypes.contains("Diesel"), let price = parsePrice(dieselPrice) {
             prices["Diesel"] = price
         }
-        if selectedFuelTypes.contains("E85"), let price = Double(e85Price) {
+        if selectedFuelTypes.contains("E85"), let price = parsePrice(e85Price) {
             prices["E85"] = price
         }
         
-        // Here you would typically update the station in your data source
-        // For now, we'll just dismiss the view
-        print("Updated station: \(name) with prices: \(prices)")
-        dismiss()
+        print("🔍 Updating station with prices: \(prices)")
+        print("🔍 Selected fuel types: \(Array(selectedFuelTypes))")
+        
+        let updatedStation = Station(
+            id: station.id,
+            name: name,
+            address: address,
+            fuelTypes: Array(selectedFuelTypes),
+            currentPrices: prices,
+            rating: rating,
+            distance: Double(distance) ?? station.distance,
+            isFavorite: isFavorite,
+            image: selectedImage
+        )
+        
+        // Update station in Firebase
+        firebaseManager.updateStation(updatedStation) { result in
+            DispatchQueue.main.async {
+                self.isSaving = false // Stop saving state
+                
+                switch result {
+                case .success(_):
+                    print("✅ Station updated successfully in Firebase")
+                    // Upload image if selected
+                    if let image = selectedImage {
+                        self.isSaving = true // Resume saving for image upload
+                        
+                        // Clear cached image first so new image will be loaded
+                        ImageCache.shared.removeImage(for: station.id.uuidString)
+                        
+                        firebaseManager.uploadStationImage(image, stationId: station.id.uuidString) { imageResult in
+                            DispatchQueue.main.async {
+                                self.isSaving = false // Stop saving state for image upload
+                                
+                                switch imageResult {
+                                case .success(_):
+                                    print("✅ Station image updated successfully")
+                                    // Cache the new image immediately
+                                    ImageCache.shared.setImage(image, for: station.id.uuidString)
+                                case .failure(let error):
+                                    print("❌ Failed to upload image: \(error.localizedDescription)")
+                                }
+                                // Notify parent that station was updated
+                                onStationUpdated?()
+                                dismiss()
+                            }
+                        }
+                    } else {
+                        // Notify parent that station was updated
+                        onStationUpdated?()
+                        dismiss()
+                    }
+                case .failure(let error):
+                    print("❌ Failed to update station: \(error.localizedDescription)")
+                    // Still dismiss on error
+                    dismiss()
+                }
+            }
+        }
     }
 }
 
@@ -189,6 +367,7 @@ struct EditStationView: View {
         currentPrices: ["Regular": 1.85, "Premium": 2.15, "Diesel": 1.95],
         rating: 4.5,
         distance: 2.3,
-        isFavorite: true
+        isFavorite: true,
+        image: nil
     ))
 } 
