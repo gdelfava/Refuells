@@ -100,80 +100,87 @@ struct StationRow: View {
     let station: Station
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(station.name)
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    Text(station.address)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    HStack {
-                        Image(systemName: "star.fill")
-                            .font(.caption)
-                            .foregroundColor(.yellow)
-                        Text(String(format: "%.1f", station.rating))
+        NavigationLink(destination: StationDetailView(station: station)) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(station.name)
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        
+                        Text(station.address)
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                     
-                    Text("\(String(format: "%.1f", station.distance))km")
+                    Spacer()
+                    
+                    VStack(alignment: .trailing, spacing: 4) {
+                        HStack {
+                            Image(systemName: "star.fill")
+                                .font(.caption)
+                                .foregroundColor(.yellow)
+                            Text(String(format: "%.1f", station.rating))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Text("\(String(format: "%.1f", station.distance))km")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                    }
+                    
+                    Image(systemName: "chevron.right")
                         .font(.caption)
-                        .foregroundColor(.blue)
+                        .foregroundColor(.secondary)
                 }
-            }
-            
-            // Fuel prices
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Fuel Prices")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.secondary)
                 
-                HStack(spacing: 15) {
-                    ForEach(station.fuelTypes, id: \.self) { fuelType in
-                        if let price = station.currentPrices[fuelType] {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(fuelType)
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                                Text("$\(String(format: "%.2f", price))")
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.green)
+                // Fuel prices
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Fuel Prices")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.secondary)
+                    
+                    HStack(spacing: 15) {
+                        ForEach(station.fuelTypes, id: \.self) { fuelType in
+                            if let price = station.currentPrices[fuelType] {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(fuelType)
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                    Text("$\(String(format: "%.2f", price))")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.green)
+                                }
                             }
                         }
                     }
                 }
-            }
-            
-            HStack {
-                Button(action: {
-                    // Toggle favorite
-                }) {
-                    Image(systemName: station.isFavorite ? "heart.fill" : "heart")
-                        .foregroundColor(station.isFavorite ? .red : .gray)
-                }
                 
-                Spacer()
-                
-                Button("Directions") {
-                    // Open directions
+                HStack {
+                    Button(action: {
+                        // Toggle favorite
+                    }) {
+                        Image(systemName: station.isFavorite ? "heart.fill" : "heart")
+                            .foregroundColor(station.isFavorite ? .red : .gray)
+                    }
+                    
+                    Spacer()
+                    
+                    Button("Directions") {
+                        // Open directions
+                    }
+                    .font(.caption)
+                    .foregroundColor(.blue)
                 }
-                .font(.caption)
-                .foregroundColor(.blue)
             }
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(12)
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .buttonStyle(PlainButtonStyle())
     }
 }
 
